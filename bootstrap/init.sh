@@ -13,21 +13,22 @@ disklabel64 -B -r -w /dev/da0s1 auto $DISK_NAME
 disklabel64 /dev/da0s1 >> /tmp/da0-disklabel.proto
 
 cat << EOF >> /tmp/da0-disklabel.proto
-a: * 0 HAMMER2
+a: 1G 0 4.2BSD
 b: 8G * swap
+d: *  * HAMMER2
 EOF
 
 disklabel64 -R da0s1 /tmp/da0-disklabel.proto
 rm /tmp/da0-disklabel.proto
 
 echo 'Creating HAMMER2 filesystem @ROOT ...'
-newfs_hammer2 -L ROOT /dev/part-by-label/$DISK_NAME.a
+newfs_hammer2 -L ROOT /dev/part-by-label/$DISK_NAME.d
 
-mount /dev/part-by-label/$DISK_NAME.a@ROOT /mnt
-echo 'Creating @BOOT PFS...'
-hammer2 -s /mnt pfs-create BOOT
+mount /dev/part-by-label/$DISK_NAME.d@ROOT /mnt
+echo 'Creating /boot...'
+newfs /dev/part-by-label/$DISK_NAME.a
 mkdir /mnt/boot
-mount /dev/part-by-label/$DISK_NAME.a@BOOT /mnt/boot
+mount /dev/part-by-label/$DISK_NAME.a /mnt/boot
 
 echo 'Filling filesystem...'
 set -x
@@ -48,7 +49,7 @@ cd /
 
 echo 'Creating /boot/loader.conf...'
 cat > /mnt/boot/loader.conf << EOF
-vfs.root.mountfrom="hammer2:part-by-label/$DISK_NAME.a@ROOT"
+vfs.root.mountfrom="hammer2:part-by-label/$DISK_NAME.d@ROOT"
 if_bridge_load="YES"
 pf_load="YES"
 pflog_load="YES"
@@ -57,9 +58,9 @@ EOF
 
 echo 'Creating /etc/fstab...'
 cat > /mnt/etc/fstab << EOF
-/dev/part-by-label/$DISK_NAME.a@ROOT  /      hammer2 rw                                1 1
-/dev/part-by-label/$DISK_NAME.a@BOOT  /boot  hammer2 rw                                1 1
+/dev/part-by-label/$DISK_NAME.a       /boot  ufs     rw                                1 1
 /dev/part-by-label/$DISK_NAME.b       none   swap    sw                                0 0
+/dev/part-by-label/$DISK_NAME.d@ROOT  /      hammer2 rw                                1 1
 tmpfs                                 /tmp   tmpfs   rw,nosuid,nodev,noatime,size=256M 0 0
 proc                                  /proc  procfs  rw                                0 0
 EOF
