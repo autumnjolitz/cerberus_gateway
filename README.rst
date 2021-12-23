@@ -2,6 +2,16 @@
 Cerberus Gateway
 ===================
 
+
+Status
+==========
+
+- provision a DragonFly VBOX image ✅ 
+- install gateway related files
+- create Vagrant box
+- test networking
+
+
 Purpose
 =========
 
