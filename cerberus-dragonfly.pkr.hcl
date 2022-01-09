@@ -96,7 +96,7 @@ build {
   # and use a dd command to burn a USB image for booting.
   provisioner "shell" {
     inline = [
-      "echo ${var.packer_password} | sudo -S ls /boot",
+      "echo ${var.packer_password} | sudo --chdir=/usr/src -S ls",
     ]
   }
 
