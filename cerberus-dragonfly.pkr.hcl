@@ -98,6 +98,7 @@ build {
     inline = [
       "echo ${var.packer_password} | sudo --chdir=/usr/src -S ls",
     ]
+    remote_folder = "/home/packer"
   }
 
 }
