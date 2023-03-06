@@ -24,7 +24,7 @@ rm /tmp/da0-disklabel.proto
 
 # Install boot hierarchy (UFS only because the EFI loader only does UFS)
 # 32k block size and 4096 fragments
-newfs -L BOOT -b 32768 -f 4096 -g 771957 -h 280 -m 5 /dev/part-by-label/$DISK_NAME.a
+newfs -L BOOT -b 32768 -f 4096 -g 771957 -h 280 -m 50 /dev/part-by-label/$DISK_NAME.a
 mount -t ufs /dev/part-by-label/$DISK_NAME.a /mnt
 # Copy boot to the Boot pfs
 cpdup -I /boot /mnt/
@@ -104,19 +104,23 @@ cpdup -I /var/run /mnt/var/run
 cpdup -I /var/spool /mnt/var/spool
 cpdup -I /etc.hdd /mnt/etc 
 
+
 echo 'Cleaning @ROOT...'
 
 rm -rf /mnt/README* /mnt/autorun* /mnt/dflybsd.ico /mnt/index.html
+# Remove the ssh key
+truncate -s 0 /mnt/root/.ssh/authorized_keys
 
 echo 'Creating /boot/loader.conf...'
 cat > /mnt/boot/loader.conf << EOF
 vfs.root.mountfrom="hammer2:part-by-label/$DISK_NAME.d@ROOT"
 if_bridge_load="YES"
 pf_load="YES"
-nvmm_load="YES"
 pflog_load="YES"
+ichsmb_load="YES"
+corepower_load="YES"
+nvmm_load="YES"
 autoboot_delay="3"
-kern.cam.scsi_delay=100
 EOF
 
 echo 'Creating /etc/fstab...'
@@ -154,6 +158,7 @@ dumpdev="/dev/part-by-label/$DISK_NAME.b"
 hostname="dragonfly-${BUILD_UUID}"
 ifconfig_em0="DHCP"
 sshd_enable="YES"
+syslogd_enable="YES"
 dntpd_enable="YES"
 
 EOF
@@ -204,7 +209,7 @@ $CHROOT_CMD 'chpass -p "" root'
 
 echo 'Upgrading base packages...'
 cp /etc/resolv.conf /mnt/etc/resolv.conf  # This really solved the confusing "I can't find internet" error
-cp /etc/ssl/cert.pem /mnt/etc/ssl/cert.pem
+cp /etc/ssl/cert.pem /mnt/etc/ssl/cert.pem # This avoids needing to do an insecure fetch of the certs!
 
 $CHROOT_CMD "cd /usr && make pkg-bootstrap-force"
 $CHROOT_CMD 'pkg update'
@@ -216,13 +221,25 @@ cat > /mnt/usr/local/etc/sudoers.d/wheel << EOF
 %wheel  ALL=(ALL)   NOPASSWD:ALL
 EOF
 
-$CHROOT_CMD "cd /usr && make src-create-shallow"
+echo "Initializing /etc and /usr/local/etc git repository and logging as first commit."
+$CHROOT_CMD 'git config --global user.email "root@localhost"'
+$CHROOT_CMD 'git config --global user.name "Root"'
+$CHROOT_CMD 'git config --global init.defaultBranch main'
+$CHROOT_CMD 'cd /etc && git init && git add .gitignore && git commit -m "[.gitignore] add" && git add -A . && git commit -m "[*] initialized /etc"'
+$CHROOT_CMD 'cd /usr/local/etc && git init && git add .gitignore && git commit -m "[.gitignore] add" && git add -A . && git commit -m "[*] initialized /usr/local/etc"'
 
+echo "Cloning kernel/userland sources"
+$CHROOT_CMD "cd /usr && make src-create-shallow"
+# Last internet operations done! remove!
+echo "Removing internet access override"
 rm /mnt/etc/resolv.conf
 
 $CHROOT_CMD 'mtree -i -deU -f /etc/mtree/BSD.var.dist -p /var'
 $CHROOT_CMD 'mtree -i -deU -f /etc/mtree/BSD.root.dist -p /'
 $CHROOT_CMD 'mtree -i -deU -f /etc/mtree/BSD.usr.dist -p /usr'
+
+echo 'Building/Installing world and kernel for fast use of nrelease (slow!)'
+$CHROOT_CMD "cd /usr/src && time make build-all install-all"
 
 echo 'Syncing...'
 sync
@@ -231,6 +248,8 @@ for mountpt in /mnt/boot /mnt/usr/distfiles /mnt/usr/dports /mnt/usr/local /mnt/
 do
     if ! umount $mountpt
     then
+        sync
+        sleep 3
         echo "Force unmounting {$mountpt}"
         sync
         umount -f $mountpt

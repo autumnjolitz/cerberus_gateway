@@ -5,7 +5,7 @@ packer {
       source  = "github.com/hashicorp/virtualbox"
     }
     sshkey = {
-      version = ">= 0.1.0"
+      version = ">= 1.0.8"
       source = "github.com/ivoronin/sshkey"
     }
 
@@ -20,20 +20,19 @@ variable "packages" {
     type = list(string)
 }
 
-
-
-
-data "sshkey" "install" {
+data "sshkey" "image" {
+  type = "ed25519"
 }
 
 source "virtualbox-ovf" "cerberus-image" {
   source_path = "cerberus-builder/cerberus-builder.ovf"
+  # headless = true
 
-  ssh_private_key_file      = data.sshkey.install.private_key_path
+  ssh_private_key_file      = data.sshkey.image.private_key_path
   ssh_clear_authorized_keys = true
   http_content = {
-    "/ssh.pub" = data.sshkey.install.public_key
-    "/setup-packer-user.sh" = file("bootstrap/setup-packer-user.sh")
+    "/ssh.pub" = data.sshkey.image.public_key
+    "/setup-packer-user.sh" = templatefile("bootstrap/setup-packer-user.sh")
   }
 
   boot_command  = [
@@ -45,12 +44,9 @@ source "virtualbox-ovf" "cerberus-image" {
     "<wait1s>",
     "<return><wait37s>",
     "root<return>",
-    "sh <return>",  # Switch to bourne shell (not csh)
-    "export HTTP_SERVER='http://{{ .HTTPIP }}:{{ .HTTPPort }}' <return>",
-    "fetch $HTTP_SERVER/setup-packer-user.sh && \\<return>",
-    "chmod +x setup-packer-user.sh && \\<return>",
-    "./setup-packer-user.sh $HTTP_SERVER && exit",
-    "<return>",
+    "curl -s http://{{ .HTTPIP }}:{{ .HTTPPort }}/setup-packer-user.sh | bash  && \\<return>",
+    # "tail -f /var/log/auth.log<return>",
+    "exit <return>",
   ]
   vboxmanage = [
     [ "setextradata", "{{.Name}}", "GUI/ScaleFactor", "1.7" ],
@@ -62,7 +58,7 @@ source "virtualbox-ovf" "cerberus-image" {
 }
 
 build {
-  name = "cerberus-build"
+  name = "cerberus-image"
   source "virtualbox-ovf.cerberus-image" {
       skip_export = true
   }

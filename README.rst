@@ -56,6 +56,7 @@ Building
 
 ::
 
+    curl 'http://mirror-master.dragonflybsd.org/iso-images/dfly-x86_64-6.4.0_REL.iso.bz2' | bunzip2 -c > dfly-x86_64-6.4.0_REL.iso
     packer init cerberus-builder.pkr.hcl
     packer build cerberus-builder.pkr.hcl
     packer build cerberus-image.pkr.hcl
