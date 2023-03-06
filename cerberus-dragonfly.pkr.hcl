@@ -44,7 +44,6 @@ source "virtualbox-iso" "dragonfly_base" {
   iso_interface = "sata"
   hard_drive_interface = "sata"
 
-
   sata_port_count = 2
   disk_size = 68000
 
@@ -56,16 +55,17 @@ source "virtualbox-iso" "dragonfly_base" {
   http_content = {
     "/ssh.pub" = data.sshkey.install.public_key
     "/init.sh" = file("bootstrap/init.sh")
+
   }
 
   boot_command  = [
-    "<esc><wait150ms>",
-    "fs1:", # Switch to the Optical CD drive and boot
-    "<enter>",
-    "\\efi\\boot\\bootx64.efi", # Initiate the EFI boot loader
-    "<enter>",
+    # "<esc><wait150ms>",
+    # "fs1:", # Switch to the Optical CD drive and boot
+    # "<enter>",
+    # "\\efi\\boot\\bootx64.efi", # Initiate the EFI boot loader
+    # "<enter>",
     "<wait1s>",
-    "<return><wait38s>",
+    "<return><wait69s>",
     "root<return>",
     "sh <return>",  # Switch to bourne shell (not csh)
     "export ROOT_PASSWORD='${var.root_password}' <return>",
@@ -80,6 +80,7 @@ source "virtualbox-iso" "dragonfly_base" {
   ]
   vboxmanage = [
    ["setextradata", "{{.Name}}", "GUI/ScaleFactor", "1.7"],
+   [ "modifyvm", "{{.Name}}", "--firmware", "EFI" ],
   ]
 
   ssh_username = "packer"
@@ -87,8 +88,10 @@ source "virtualbox-iso" "dragonfly_base" {
 }
 
 build {
-  sources = ["sources.virtualbox-iso.dragonfly_base"]
   name = "cerberus-base"
+  source "virtualbox-iso.dragonfly_base" {
+      skip_export = true
+  }
   # ARJ: What we'll do is
   # make a USB image via /usr/src/nrelease,
   # then mount it via vnconfig and copy in additional configuration files
@@ -96,9 +99,40 @@ build {
   # and use a dd command to burn a USB image for booting.
   provisioner "shell" {
     inline = [
-      "echo ${var.packer_password} | sudo --chdir=/usr/src -S ls",
+      "echo ${var.packer_password} | sudo -S -D /usr/src/nrelease make -D binpkgs check clean buildworld1 buildkernel1 buildiso customizeiso pkgs srcs",
+      # move the etc files into place
+      # do the configuration here or something
+      "echo ${var.packer_password} | sudo -S -D /usr/src/nrelease make -D mkimg",
     ]
     remote_folder = "/home/packer"
   }
-
+  # copy files into the new usb image root
+  provisioner "file" {
+    destination = "/usr/obj/release/root/etc"
+    sources     = [
+      "config/pf.conf",
+      "config/rc.conf",
+      "config/syslog.conf",
+      "config/newsyslog.conf",
+    ]
+  }
+  provisioner "shell" {
+    inline = [
+      "echo ${var.packer_password} | sudo -S -D /usr/src/nrelease make -D mkimg",
+    ]
+    remote_folder = "/home/packer"
+  }
+  provisioner "file" {
+    destination = "."
+    source      = "/usr/obj/release/dfly.img"
+    direction   = "download"
+  }
+  post-processor "artifice" {
+    files = ["dfly.img"]
+  }
+  post-processor "checksum" {
+    checksum_types = ["sha1", "sha256"]
+    output = "{{.BuildName}}_{{.ChecksumType}}.checksum"
+    keep_input_artifact = true
+  }
 }

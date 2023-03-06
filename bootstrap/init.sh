@@ -202,7 +202,7 @@ echo $ROOT_PASSWORD | $CHROOT_CMD 'pw mod user root -h 0'
 
 echo 'Upgrading base packages...'
 cp /etc/resolv.conf /mnt/etc/resolv.conf  # This really solved the confusing "I can't find internet" error
-$CHROOT_CMD "cd /usr && make pkg-bootstrap-force"
+$CHROOT_CMD "cd /usr && make pkg-bootstrap-force src-update"
 $CHROOT_CMD 'pkg update'
 $CHROOT_CMD 'pkg upgrade -y'
 echo 'Installing sudo and bash...'
@@ -228,15 +228,10 @@ $CHROOT_CMD 'chmod 0700 /home/packer/.ssh'
 $CHROOT_CMD 'mv /home/packer/ssh.pub /home/packer/.ssh/authorized_keys'
 $CHROOT_CMD 'chmod 0600 /home/packer/.ssh/authorized_keys'
 
-echo "Initializing /etc git repository and logging as first commit."
-$CHROOT_CMD 'git config --global user.email "root@localhost"'
-$CHROOT_CMD 'git config --global user.name "Root"'
-$CHROOT_CMD 'git config --global init.defaultBranch main'
-$CHROOT_CMD 'cd /etc && git init && git add .gitignore && git commit -m "[.gitignore] add" && git add -A . && git commit -m "[*] initialized /etc"'
-$CHROOT_CMD 'cd /usr/local/etc && git init && git add .gitignore && git commit -m "[.gitignore] add" && git add -A . && git commit -m "[*] initialized /usr/local/etc"'
 $CHROOT_CMD 'mtree -i -deU -f /etc/mtree/BSD.var.dist -p /var'
 $CHROOT_CMD 'mtree -i -deU -f /etc/mtree/BSD.root.dist -p /'
 $CHROOT_CMD 'mtree -i -deU -f /etc/mtree/BSD.usr.dist -p /usr'
+$CHROOT_CMD 'cd /usr/src && make build-all && make install-all && pkg update && pkg upgrade -y'
 
 echo 'Syncing...'
 echo 'Unmounting'
