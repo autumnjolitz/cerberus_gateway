@@ -12,6 +12,21 @@ packer {
   }
 }
 
+variable "hostname" {
+  type = string
+}
+
+variable "external_address" {
+  type = string
+}
+
+variable "domain" {
+  type = string
+}
+
+variable "external_router_address" {
+  type = string
+}
 
 variable "packages" {
     default = [
@@ -31,8 +46,13 @@ source "virtualbox-ovf" "cerberus-image" {
   ssh_private_key_file      = data.sshkey.image.private_key_path
   ssh_clear_authorized_keys = true
   http_content = {
-    "/ssh.pub" = data.sshkey.image.public_key
-    "/setup-packer-user.sh" = templatefile("bootstrap/setup-packer-user.sh")
+    "/root.pub" = data.sshkey.image.public_key
+    "/setup-user.sh" = file("bootstrap/setup-user.sh")
+    "/rc.conf" = templatefile("config/rc.tmpl.conf", {
+      external_address = var.external_address
+      hostname = var.hostname
+      domain = var.domain
+    })
   }
 
   boot_command  = [
@@ -44,7 +64,7 @@ source "virtualbox-ovf" "cerberus-image" {
     "<wait1s>",
     "<return><wait37s>",
     "root<return>",
-    "curl -s http://{{ .HTTPIP }}:{{ .HTTPPort }}/setup-packer-user.sh | bash  && \\<return>",
+    "curl 'http://{{ .HTTPIP }}:{{ .HTTPPort }}/setup-user.sh' | sh -s {{ .HTTPIP }} {{ .HTTPPort }} root && \\<return>",
     # "tail -f /var/log/auth.log<return>",
     "exit <return>",
   ]
@@ -53,8 +73,8 @@ source "virtualbox-ovf" "cerberus-image" {
     [ "modifyvm", "{{.Name}}", "--nat-localhostreachable1", "on" ],
   ]
 
-  ssh_username = "packer"
-  shutdown_command = "sudo shutdown -p now"
+  ssh_username = "root"
+  shutdown_command = "shutdown -p now"
 }
 
 build {
@@ -70,9 +90,10 @@ build {
   # and use a dd command to burn a USB image for booting.
   provisioner "shell" {
     inline = [
-      "cd /usr/src/nrelease && sudo make -D DPORTS_EXTRA_PACKAGES='${ join(" ", var.packages) }' binpkgs check clean buildworld1 buildkernel1 buildiso customizeiso pkgs srcs",
-      # move the etc files into place
-      # do the configuration here or something
+      "cd /usr/src/nrelease && make -D DPORTS_EXTRA_PACKAGES='${ join(" ", var.packages) }' binpkgs check clean buildworld1 buildkernel1 buildiso customizeiso pkgs srcs",
+      "pushd root/etc",
+      "curl http://{{.HTTPIP}}:{{.HTTPPort}}/rc.conf > rc.conf",
+      "popd"
     ]
     remote_folder = "/home/packer"
   }
@@ -81,14 +102,13 @@ build {
     destination = "/usr/obj/release/root/etc"
     sources     = [
       "config/pf.conf",
-      "config/rc.conf",
       "config/syslog.conf",
       "config/newsyslog.conf",
     ]
   }
   provisioner "shell" {
     inline = [
-      "sudo -S -D /usr/src/nrelease make -D mkimg",
+      "cd /usr/src/nrelease && make -D mkimg",
     ]
     remote_folder = "/home/packer"
   }

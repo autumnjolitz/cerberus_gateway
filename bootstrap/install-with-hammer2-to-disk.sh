@@ -24,7 +24,7 @@ rm /tmp/da0-disklabel.proto
 
 # Install boot hierarchy (UFS only because the EFI loader only does UFS)
 # 32k block size and 4096 fragments
-newfs -L BOOT -b 32768 -f 4096 -g 771957 -h 280 -m 50 /dev/part-by-label/$DISK_NAME.a
+newfs -L BOOT -b 32768 -f 4096 -g 771957 -h 280 -m 5 /dev/part-by-label/$DISK_NAME.a
 mount -t ufs /dev/part-by-label/$DISK_NAME.a /mnt
 # Copy boot to the Boot pfs
 cpdup -I /boot /mnt/
@@ -154,14 +154,22 @@ EOF
 echo "Generating rc.conf..."
 cat > /mnt/etc/rc.conf << EOF  
 # initial rc.conf
+ifconfig_em0_name="ext0"
+ifconfig_ext0="DHCP"
+
 dumpdev="/dev/part-by-label/$DISK_NAME.b"
 hostname="dragonfly-${BUILD_UUID}"
-ifconfig_em0="DHCP"
+
 sshd_enable="YES"
 syslogd_enable="YES"
 dntpd_enable="YES"
 
 EOF
+
+cat >> /mnt/etc/sysctl.conf <<EOF
+kern.cam.da.0.trim_enabled=1
+EOF
+
 echo "Adding /etc/.gitignore"
 cat > /mnt/etc/.gitignore << EOF
 *.db  # Any binary db file
@@ -238,8 +246,8 @@ $CHROOT_CMD 'mtree -i -deU -f /etc/mtree/BSD.var.dist -p /var'
 $CHROOT_CMD 'mtree -i -deU -f /etc/mtree/BSD.root.dist -p /'
 $CHROOT_CMD 'mtree -i -deU -f /etc/mtree/BSD.usr.dist -p /usr'
 
-echo 'Building/Installing world and kernel for fast use of nrelease (slow!)'
-$CHROOT_CMD "cd /usr/src && time make build-all install-all"
+echo 'Building world and kernel for fast use of nrelease (slow!)'
+$CHROOT_CMD "cd /usr/src && time make buildworld buildkernel"
 
 echo 'Syncing...'
 sync
@@ -250,7 +258,7 @@ do
     then
         sync
         sleep 3
-        echo "Force unmounting {$mountpt}"
+        echo "Force unmounting $mountpt"
         sync
         umount -f $mountpt
     fi

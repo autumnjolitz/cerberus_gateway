@@ -49,12 +49,14 @@ source "virtualbox-iso" "dragonfly_base" {
 
   hard_drive_nonrotational = true
   hard_drive_discard = true
+  nested_virt = true
+  usb = true
 
   ssh_private_key_file      = data.sshkey.install.private_key_path
   ssh_clear_authorized_keys = true
   http_content = {
     "/root.pub" = data.sshkey.install.public_key
-    "/setup-root-user.sh" = file("bootstrap/setup-root-user.sh")
+    "/setup-user.sh" = file("bootstrap/setup-user.sh")
   }
 
   boot_command  = [
@@ -67,7 +69,7 @@ source "virtualbox-iso" "dragonfly_base" {
     "<return><wait80s>",
     "root<return>",
     "dhclient em0 && sleep 3 && \\<return>", # Get the ip from the dhcp server
-    "curl 'http://{{ .HTTPIP }}:{{ .HTTPPort }}/setup-root-user.sh' | sh -s {{ .HTTPIP }} {{ .HTTPPort }} && \\<return>",
+    "curl 'http://{{ .HTTPIP }}:{{ .HTTPPort }}/setup-user.sh' | sh -s {{ .HTTPIP }} {{ .HTTPPort }} root && \\<return>",
     # "tail -f /var/log/auth.log<return>",
     "exit <return>",
   ]
