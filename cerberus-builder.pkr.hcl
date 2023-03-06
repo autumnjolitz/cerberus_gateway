@@ -5,7 +5,7 @@ packer {
       source  = "github.com/hashicorp/virtualbox"
     }
     sshkey = {
-      version = ">= 0.1.0"
+      version = ">= 1.0.8"
       source = "github.com/ivoronin/sshkey"
     }
 
