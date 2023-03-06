@@ -113,8 +113,10 @@ cat > /mnt/boot/loader.conf << EOF
 vfs.root.mountfrom="hammer2:part-by-label/$DISK_NAME.d@ROOT"
 if_bridge_load="YES"
 pf_load="YES"
+nvmm_load="YES"
 pflog_load="YES"
 autoboot_delay="3"
+kern.cam.scsi_delay=100
 EOF
 
 echo 'Creating /etc/fstab...'
@@ -198,56 +200,42 @@ echo 'Regenerating password database...'
 $CHROOT_CMD 'pwd_mkdb -p /etc/master.passwd'
 
 echo 'Setting root password...'
-echo $ROOT_PASSWORD | $CHROOT_CMD 'pw mod user root -h 0'
+$CHROOT_CMD 'chpass -p "" root'
 
 echo 'Upgrading base packages...'
 cp /etc/resolv.conf /mnt/etc/resolv.conf  # This really solved the confusing "I can't find internet" error
-$CHROOT_CMD "cd /usr && make pkg-bootstrap-force src-update"
+cp /etc/ssl/cert.pem /mnt/etc/ssl/cert.pem
+
+$CHROOT_CMD "cd /usr && make pkg-bootstrap-force"
 $CHROOT_CMD 'pkg update'
 $CHROOT_CMD 'pkg upgrade -y'
 echo 'Installing sudo and bash...'
 $CHROOT_CMD 'pkg install -y bash sudo'
 echo 'Allowing group wheel to sudo...'
 cat > /mnt/usr/local/etc/sudoers.d/wheel << EOF
-%wheel  ALL=(ALL)       ALL
+%wheel  ALL=(ALL)   NOPASSWD:ALL
 EOF
+
+$CHROOT_CMD "cd /usr && make src-create-shallow"
+
 rm /mnt/etc/resolv.conf
-
-echo 'Allocate our packer user...'
-echo $PACKER_USER_PASSWORD | $CHROOT_CMD 'pw add user packer -G wheel -h 0 -s /usr/local/bin/bash'
-# Disable passwd access for this user:
-
-mkdir /mnt/home/packer
-(cd /mnt/home/packer && fetch $HTTP_SERVER/ssh.pub)
-
-# Now setup the ssh key for this user
-$CHROOT_CMD 'chown -R packer:packer /home/packer'
-$CHROOT_CMD 'mkdir /home/packer/.ssh'
-$CHROOT_CMD 'chown packer:packer /home/packer/.ssh'
-$CHROOT_CMD 'chmod 0700 /home/packer/.ssh'
-$CHROOT_CMD 'mv /home/packer/ssh.pub /home/packer/.ssh/authorized_keys'
-$CHROOT_CMD 'chmod 0600 /home/packer/.ssh/authorized_keys'
 
 $CHROOT_CMD 'mtree -i -deU -f /etc/mtree/BSD.var.dist -p /var'
 $CHROOT_CMD 'mtree -i -deU -f /etc/mtree/BSD.root.dist -p /'
 $CHROOT_CMD 'mtree -i -deU -f /etc/mtree/BSD.usr.dist -p /usr'
-$CHROOT_CMD 'cd /usr/src && make build-all && make install-all && pkg update && pkg upgrade -y'
 
 echo 'Syncing...'
+sync
 echo 'Unmounting'
-umount /mnt/boot
-umount /mnt/usr/distfiles
-umount /mnt/usr/dports
-umount /mnt/usr/local
-umount /mnt/usr/src
-umount /mnt/var/crash
-umount /mnt/var/log
-umount /mnt/var/run
-umount /mnt/var/spool
-umount /mnt/usr
-umount /mnt/var
-umount /mnt/dev
-umount /mnt/volatile
-umount /mnt/home
-umount /mnt
+for mountpt in /mnt/boot /mnt/usr/distfiles /mnt/usr/dports /mnt/usr/local /mnt/usr/src /mnt/var/crash /mnt/var/log /mnt/var/run /mnt/var/spool /mnt/usr /mnt/var /mnt/dev /mnt/volatile /mnt/home /mnt
+do
+    if ! umount $mountpt
+    then
+        echo "Force unmounting {$mountpt}"
+        sync
+        umount -f $mountpt
+    fi
+done
+sync
+
 

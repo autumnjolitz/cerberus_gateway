@@ -56,6 +56,7 @@ Building
 
 ::
 
-    packer init cerberus-dragonfly.pkr.hcl
-    packer build cerberus-dragonfly.pkr.hcl
+    packer init cerberus-builder.pkr.hcl
+    packer build cerberus-builder.pkr.hcl
+    packer build cerberus-image.pkr.hcl
 
