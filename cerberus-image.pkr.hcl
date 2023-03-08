@@ -1,7 +1,7 @@
 packer {
   required_plugins {
     virtualbox = {
-      version = ">= 0.0.1"
+      version = ">= 1.0.4"
       source  = "github.com/hashicorp/virtualbox"
     }
     sshkey = {
