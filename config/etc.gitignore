@@ -1,0 +1,23 @@
+*.db  # Any binary db file
+*/*.db
+localtime
+nsswitch.conf
+host.conf
+motd
+master.passwd
+resolv.conf
+dumpdates
+ssh/moduli
+defaults/
+ssh/ssh_host_dsa_key
+ssh/ssh_host_dsa_key.pub
+ssh/ssh_host_ecdsa_key
+ssh/ssh_host_ecdsa_key.pub
+ssh/ssh_host_ed25519_key
+ssh/ssh_host_ed25519_key.pub
+ssh/ssh_host_key
+ssh/ssh_host_key.pub
+ssh/ssh_host_rsa_key
+ssh/ssh_host_rsa_key.pub
+ssl/private
+os-release

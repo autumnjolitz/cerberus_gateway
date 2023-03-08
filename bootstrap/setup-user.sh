@@ -31,10 +31,20 @@ then
     exit 1
 fi
 
+if [ -f /usr/local/bin/bash ]
+then
+    SHELL=/usr/local/bin/bash
+else
+    echo 'Defaulting to csh as bash is not installed!'
+    SHELL=/bin/tcsh
+fi
+
 if ! id ${USERNAME}
 then
     echo "Adding our ${USERNAME} user..."
-    pw add user ${USERNAME} -G wheel -h - -s /usr/local/bin/bash
+    pw add user ${USERNAME} -G wheel -h - -s $SHELL
+else
+    chpass -s $SHELL ${USERNAME}
 fi
 
 

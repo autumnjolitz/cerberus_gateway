@@ -31,6 +31,10 @@ variable "external_router_address" {
 variable "packages" {
     default = [
       "dns/bind918",
+      "shells/bash",
+      "sysutils/py-supervisor",
+      "lang/python311",
+      "net/samba413",
     ]
     type = list(string)
 }
@@ -40,8 +44,8 @@ data "sshkey" "image" {
 }
 
 source "virtualbox-ovf" "cerberus-image" {
-  source_path = "cerberus-builder/cerberus-builder.ovf"
-  # headless = true
+  source_path = "dragonfly/dragonfly.ovf"
+  headless = true
 
   ssh_private_key_file      = data.sshkey.image.private_key_path
   ssh_clear_authorized_keys = true
@@ -50,6 +54,7 @@ source "virtualbox-ovf" "cerberus-image" {
     "/setup-user.sh" = file("bootstrap/setup-user.sh")
     "/rc.conf" = templatefile("config/rc.tmpl.conf", {
       external_address = var.external_address
+      external_router_address = var.external_router_address
       hostname = var.hostname
       domain = var.domain
     })
@@ -69,7 +74,6 @@ source "virtualbox-ovf" "cerberus-image" {
     "exit <return>",
   ]
   vboxmanage = [
-    [ "setextradata", "{{.Name}}", "GUI/ScaleFactor", "1.7" ],
     [ "modifyvm", "{{.Name}}", "--nat-localhostreachable1", "on" ],
   ]
 
@@ -82,20 +86,24 @@ build {
   source "virtualbox-ovf.cerberus-image" {
       skip_export = true
   }
-
-  # ARJ: What we'll do is
-  # make a USB image via /usr/src/nrelease,
-  # then mount it via vnconfig and copy in additional configuration files
-  # then we will use the files directive to copy the img out of the vm,
-  # and use a dd command to burn a USB image for booting.
+  # Uploda modified nrelease script as we're making a liveusb
+  # with a custom configuration:
+  provisioner "file" {
+    destination = "/usr/src/nrelease/Makefile.cerberus"
+    source      = "config/Makefile.cerberus"
+  }
   provisioner "shell" {
     inline = [
-      "cd /usr/src/nrelease && make -D DPORTS_EXTRA_PACKAGES='${ join(" ", var.packages) }' binpkgs check clean buildworld1 buildkernel1 buildiso customizeiso pkgs srcs",
-      "pushd root/etc",
-      "curl http://{{.HTTPIP}}:{{.HTTPPort}}/rc.conf > rc.conf",
+      "pushd /usr/src/nrelease",
+        "DPORTS_EXTRA_PACKAGES=\"${ join(" ", var.packages) }\"",
+        "make -f Makefile.cerberus -DWITHOUT_SRCS build",
+        "pushd root/etc",
+          "curl http://{{.HTTPIP}}:{{.HTTPPort}}/rc.conf > rc.conf",
+        "popd",
       "popd"
     ]
-    remote_folder = "/home/packer"
+    inline_shebang = "/usr/bin/env bash -xe"
+    remote_folder = "/root"
   }
   # copy files into the new usb image root
   provisioner "file" {
@@ -106,11 +114,19 @@ build {
       "config/newsyslog.conf",
     ]
   }
+  provisioner "file" {
+    destination = "/etc/.gitignore"
+    source = "config/etc.gitignore"
+  }
+  provisioner "file" {
+    destination = "/usr/local/etc/.gitignore"
+    source = "config/usr_local_etc.gitignore"
+  }
   provisioner "shell" {
     inline = [
-      "cd /usr/src/nrelease && make -D mkimg",
+      "cd /usr/src/nrelease && make image",
     ]
-    remote_folder = "/home/packer"
+    remote_folder = "/root"
   }
   provisioner "file" {
     destination = "."

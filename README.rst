@@ -29,6 +29,18 @@ What will this accomplish:
 
 - low power consumption x84_64 DragonFly gateway
 
+
+Components
+=============
+
+Please note, all "boot_delay"s are figured through trial and error on my MacBook Pro. If you find it doesn't work,
+comment out the ``headless = true`` lines to debug. Usually it's a matter of seconds to add on.
+
+
+``dragonfly-builder.pkr.hcl`` is a genericized "Create me a DragonFly system with HAMMER2".
+
+``cerberus-image.pkr.hcl`` uses the above exported OVF to build a LiveUSB ``.img`` file for burning with ``dd``.
+
 Test
 =======
 

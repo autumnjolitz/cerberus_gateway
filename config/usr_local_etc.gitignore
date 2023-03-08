@@ -1,0 +1,8 @@
+*.sample
+*.example
+*/*.sample
+*/*.example
+zdump
+zic
+zoneinfo-*
+*.png
