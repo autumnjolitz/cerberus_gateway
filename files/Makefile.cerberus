@@ -115,7 +115,7 @@ PACKAGES+=	${PORT}
 #				BASE ISO TARGETS			#
 #########################################################################
 
-build:	check buildworld1 buildkernel1 clean \
+build:	binpkgs check buildworld1 buildkernel1 clean \
 		buildiso pkgs customizeiso srcs
 
 image:	mkiso mkimg

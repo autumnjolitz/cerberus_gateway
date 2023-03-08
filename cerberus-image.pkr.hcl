@@ -52,7 +52,7 @@ source "virtualbox-ovf" "cerberus-image" {
   http_content = {
     "/root.pub" = data.sshkey.image.public_key
     "/setup-user.sh" = file("bootstrap/setup-user.sh")
-    "/rc.conf" = templatefile("config/rc.tmpl.conf", {
+    "/rc.conf" = templatefile("files/rc.tmpl.conf", {
       external_address = var.external_address
       external_router_address = var.external_router_address
       hostname = var.hostname
@@ -79,6 +79,8 @@ source "virtualbox-ovf" "cerberus-image" {
 
   ssh_username = "root"
   shutdown_command = "shutdown -p now"
+  # DragonFly does not do guest additions
+  guest_additions_mode = "disable"
 }
 
 build {
@@ -90,16 +92,14 @@ build {
   # with a custom configuration:
   provisioner "file" {
     destination = "/usr/src/nrelease/Makefile.cerberus"
-    source      = "config/Makefile.cerberus"
+    source      = "files/Makefile.cerberus"
   }
   provisioner "shell" {
     inline = [
-      "pushd /usr/src/nrelease",
-        "DPORTS_EXTRA_PACKAGES=\"${ join(" ", var.packages) }\"",
-        "make -f Makefile.cerberus -DWITHOUT_SRCS build",
-        "pushd root/etc",
-          "curl http://{{.HTTPIP}}:{{.HTTPPort}}/rc.conf > rc.conf",
-        "popd",
+      "export DPORTS_EXTRA_PACKAGES=\"${ join(" ", var.packages) }\"",
+      "make -C /usr/src/nrelease -f Makefile.cerberus -DWITHOUT_SRCS build",
+      "pushd /usr/obj/nrelease/root",
+        "curl http://{{.HTTPIP}}:{{.HTTPPort}}/rc.conf > etc/rc.conf",
       "popd"
     ]
     inline_shebang = "/usr/bin/env bash -xe"
@@ -109,18 +109,18 @@ build {
   provisioner "file" {
     destination = "/usr/obj/release/root/etc"
     sources     = [
-      "config/pf.conf",
-      "config/syslog.conf",
-      "config/newsyslog.conf",
+      "files/pf.conf",
+      "files/syslog.conf",
+      "files/newsyslog.conf",
     ]
   }
   provisioner "file" {
     destination = "/etc/.gitignore"
-    source = "config/etc.gitignore"
+    source = "files/etc.gitignore"
   }
   provisioner "file" {
     destination = "/usr/local/etc/.gitignore"
-    source = "config/usr_local_etc.gitignore"
+    source = "files/usr_local_etc.gitignore"
   }
   provisioner "shell" {
     inline = [

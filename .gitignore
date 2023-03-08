@@ -1,2 +1,3 @@
 packer_cache/
 output-dragonfly_base/
+config/cerberus.pkrvars.hcl

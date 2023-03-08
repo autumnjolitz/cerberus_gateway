@@ -52,6 +52,7 @@ source "virtualbox-iso" "dragonfly" {
   firmware = "efi"
 
   virtualbox_version_file = ""
+  # Dragonfly does not support guest additions and
   guest_additions_mode = "disable"
 
   gfx_vram_size = 16
@@ -66,16 +67,17 @@ source "virtualbox-iso" "dragonfly" {
 
   sata_port_count = 4
   disk_size = var.disk_size_gb * 1024
-
+  # SSD mode:
   hard_drive_nonrotational = true
   hard_drive_discard = true
+
   nested_virt = true
   usb = true
 
   boot_wait = "90s"
 
   ssh_private_key_file      = data.sshkey.install.private_key_path
-  ssh_clear_authorized_keys = false
+  ssh_clear_authorized_keys = false  # we don't have `sudo` on the ISO...
   http_content = {
     "/root.pub" = data.sshkey.install.public_key
     "/setup-user.sh" = file("bootstrap/setup-user.sh")

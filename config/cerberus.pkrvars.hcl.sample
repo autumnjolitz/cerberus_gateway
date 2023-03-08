@@ -1,0 +1,5 @@
+hostname = "gateway"
+domain = "example"
+external_address = "inet 10.0.0.55"
+external_router_address = "10.0.0.1"
+
