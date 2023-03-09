@@ -28,6 +28,17 @@ variable "external_router_address" {
   type = string
 }
 
+variable "external_if_name" {
+  type = string
+}
+variable "internal_if_name" {
+  type = string
+}
+variable "syslogd_flags" {
+  type = string
+  default = ""
+}
+
 variable "packages" {
     default = [
       "dns/bind918",

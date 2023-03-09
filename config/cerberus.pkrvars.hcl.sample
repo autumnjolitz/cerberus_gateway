@@ -1,5 +1,8 @@
 hostname = "gateway"
 domain = "example"
-external_address = "inet 10.0.0.55"
-external_router_address = "10.0.0.1"
-
+internal_address = "inet 10.0.0.1/24"
+external_address = "DHCP"
+external_router_address = ""
+external_if_name = "em0"
+internal_if_name = "em1"
+syslogd_flags = ""

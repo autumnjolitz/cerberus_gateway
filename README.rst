@@ -84,5 +84,5 @@ Building
     packer init dragonfly-builder.pkr.hcl
     packer init cerberus-image.pkr.hcl
     packer build dragonfly-builder.pkr.hcl
-    packer build cerberus-image.pkr.hcl
+    packer build -var-file="config/cerberus.pkrvars.hcl" cerberus-image.pkr.hcl
 
