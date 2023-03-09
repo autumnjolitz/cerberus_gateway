@@ -1,3 +1,6 @@
 packer_cache/
 output-dragonfly_base/
 config/cerberus.pkrvars.hcl
+dragonfly/
+.DS_Store
+*.iso
