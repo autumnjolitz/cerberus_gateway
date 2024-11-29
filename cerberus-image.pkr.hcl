@@ -19,6 +19,9 @@ variable "hostname" {
 variable "external_address" {
   type = string
 }
+variable "internal_address" {
+  type = string
+}
 
 variable "domain" {
   type = string
@@ -64,8 +67,17 @@ source "virtualbox-ovf" "cerberus-image" {
     "/root.pub" = data.sshkey.image.public_key
     "/setup-user.sh" = file("bootstrap/setup-user.sh")
     "/rc.conf" = templatefile("files/rc.tmpl.conf", {
+      internal_address = var.internal_address
       external_address = var.external_address
       external_router_address = var.external_router_address
+      hostname = var.hostname
+      domain = var.domain
+      external_if_name = var.external_if_name
+      internal_if_name = var.internal_if_name
+      syslogd_flags = var.syslogd_flags
+    })
+    "/dhclient.conf" = templatefile("files/dhclient.tmpl.conf", {
+      external_address = var.external_address
       hostname = var.hostname
       domain = var.domain
     })
@@ -108,9 +120,10 @@ build {
   provisioner "shell" {
     inline = [
       "export DPORTS_EXTRA_PACKAGES=\"${ join(" ", var.packages) }\"",
-      "make -C /usr/src/nrelease -f Makefile.cerberus -DWITHOUT_SRCS build",
-      "pushd /usr/obj/nrelease/root",
+      "make -C /usr/src/nrelease -f Makefile.cerberus -DWITHOUT_SRCS binpkgs build",
+      "pushd /usr/obj/release/root",
         "curl http://{{.HTTPIP}}:{{.HTTPPort}}/rc.conf > etc/rc.conf",
+        "curl http://{{.HTTPIP}}:{{.HTTPPort}}/dhclient.conf > etc/dhclient.conf",
       "popd"
     ]
     inline_shebang = "/usr/bin/env bash -xe"

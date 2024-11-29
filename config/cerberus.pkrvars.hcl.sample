@@ -1,5 +1,6 @@
 hostname = "gateway"
 domain = "example"
+internal_domain = "lan"
 internal_address = "inet 10.0.0.1/24"
 external_address = "DHCP"
 external_router_address = ""

@@ -13,8 +13,9 @@ pflog_load="YES"
 ichsmb_load="YES"
 corepower_load="YES"
 nvmm_load="YES"
+tpm_load="YES"
+snd_hda_load="YES"
+hw.sdhci.debug=1
+hw.sdhci.adma2_test=1
 EOF
 
-cat >> /mnt/etc/sysctl.conf <<EOF
-kern.cam.da.0.trim_enabled=1
-EOF

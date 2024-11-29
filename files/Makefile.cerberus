@@ -115,7 +115,7 @@ PACKAGES+=	${PORT}
 #				BASE ISO TARGETS			#
 #########################################################################
 
-build:	binpkgs check buildworld1 buildkernel1 clean \
+build:	check clean buildworld1 buildkernel1  \
 		buildiso pkgs customizeiso srcs
 
 image:	mkiso mkimg
@@ -480,6 +480,7 @@ help:
 	@echo ""
 
 .PHONY: release quickrel realquickrel
+.PHONY: image build
 .PHONY: quick realquick
 .PHONY: check buildworld1 buildworld2
 .PHONY: buildkernel1 buildkernel2 buildiso customizeiso mkiso mkimg

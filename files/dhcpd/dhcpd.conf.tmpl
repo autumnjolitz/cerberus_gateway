@@ -1,0 +1,34 @@
+authoritative;
+
+default-lease-time 600;
+max-lease-time 7200;
+log-facility local7;
+
+%{ if internal_domain != "" }
+option domain-name "${ internal_domain }";
+option domain-name-servers 192.168.1.1;
+ddns-updates on;
+ddns-update-style interim;
+ignore client-updates;
+update-static-leases on;
+
+include "/usr/local/etc/dhcpd-ddns.key";
+
+zone ${ internal_domain }. {
+    primary 127.0.0.1;
+    key DDNS_UPDATE;
+}
+
+zone ${ internal_ipv4_in_arpa }. {
+    primary 127.0.0.1;
+    key DDNS_UPDATE;
+}
+%{ endif }
+
+
+
+subnet ${ internal_ipv4.subnet.ip } netmask ${ internal_ipv4.subnet.mask } {
+    range ${ join(" ", dhcp_ipv4_range) };
+    option routers ${ internal_ipv4.inet };
+}
+

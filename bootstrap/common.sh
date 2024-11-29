@@ -29,9 +29,9 @@ initialize_disk () {
         return 3
     fi
     perror "GPT initializing $disk..."
-    gpt init -f -B $disk
+    gpt init -f -B -E $disk
     perror "Initializing disklabel64 ${disk}s1 with label: ${disk_name}..."
-    disklabel64 -B -r -w ${disk}s1 auto $disk_name
+    disklabel64 -B -r -w ${disk}s1 auto "$disk_name"
     # Extract the existing disklabel
     disklabel64 ${disk}s1 >> /tmp/$(basename $disk)-disklabel.proto
     # Append for whole hammer partition with a swap partition
@@ -41,7 +41,7 @@ b: 8G * swap
 d: * * HAMMER2
 EOF
     # Install the partition layout
-    disklabel64 -R da0s1 /tmp/$(basename $disk)-disklabel.proto
+    disklabel64 -R ${disk}s1 /tmp/$(basename $disk)-disklabel.proto
     rm /tmp/$(basename $disk)-disklabel.proto
     return 0
 }
@@ -135,13 +135,8 @@ setup_hammer2 () {
 
 install_dragonfly() {
     local disk_name=${1:-}
-    local hostname=${1:-}
     if [ "x${disk_name}" = 'x' ]; then
         perror 'disk_name (first argument) must be provided!'
-        return 1
-    fi
-    if [ "x${hostname}" = 'x' ]; then
-        perror 'hostname (second argument) must be provided!'
         return 1
     fi
 
@@ -184,9 +179,7 @@ EOF
 
     cat > /mnt/etc/rc.conf << EOF  
 # initial rc.conf
-hostname="$hostname"
 dumpdev="/dev/part-by-label/$disk_name.b"
-dntpd_enable="YES"
 
 EOF
 
@@ -210,8 +203,21 @@ copy_files () {
     cpdup -I /var/log /mnt/var/log
     cpdup -I /var/run /mnt/var/run
     cpdup -I /var/spool /mnt/var/spool
-    cpdup -I /etc.hdd /mnt/etc 
-
+    if [ -d /etc.hdd ]; then
+        perror "Copying /etc.hdd to /mnt"
+        cpdup -I /etc.hdd /mnt/etc 
+    else
+        perror "/etc.hdd not found, assuming /etc can be used instead"
+        cpdup -I /etc /mnt/etc 
+    fi
+    if [ -d /mnt/etc/.git ]; then
+        perror "Removing prior git hierachy from /mnt/etc"
+        rm -rf /mnt/etc/.git
+    fi
+    if [ -d /mnt/usr/local/etc/.git ]; then
+        perror "Removing prior git hierachy from /mnt/usr/local/etc"
+        rm -rf /mnt/usr/local/etc/.git
+    fi
 }
 
 cleanup () {
@@ -239,11 +245,22 @@ init_packages () {
     $CHROOT_CMD 'pkg update'
     perror 'Upgrading base packages...'
     $CHROOT_CMD 'pkg upgrade -y'
+    perror "Checking for $(pwd)/packages.txt"
+    if [ -f packages.txt ]; then
+        local pkglist=$(grep -o '^[^#]*' packages.txt)
+        if [ "x$pkglist" = "x" ]; then
+            perror "packages.txt empty"
+        else
+            perror "Installing $pkglist"
+            $CHROOT_CMD 'pkg install -y '$pkglist
+        fi
+    fi
 }
 
 version_control_etc () {
-    perror "Adding /etc/.gitignore"
-    cat > /mnt/etc/.gitignore << EOF
+    if [ ! -f /mnt/etc/,gitignore ]; then
+        perror 'Default initing /mnt/etc/.gitignore'
+        cat > /mnt/etc/.gitignore << EOF
 *.db  # Any binary db file
 */*.db
 localtime
@@ -269,8 +286,10 @@ ssl/private
 os-release
 
 EOF
-    perror "Adding /usr/local/etc/.gitignore"
-    cat > /mnt/usr/local/etc/.gitignore << EOF
+    fi
+    if [ ! -f /mnt/usr/local/etc/.gitignore ]; then
+        perror 'Default initing /mnt/usr/local/etc/.gitignore'
+        cat > /mnt/usr/local/etc/.gitignore << EOF
 *.sample
 *.example
 */*.sample
@@ -281,6 +300,7 @@ zoneinfo-*
 *.png
 
 EOF
+    fi
     perror "Initializing /etc and /usr/local/etc git repository and logging as first commit."
     $CHROOT_CMD 'git config --global user.email "root@localhost"'
     $CHROOT_CMD 'git config --global user.name "Root"'
