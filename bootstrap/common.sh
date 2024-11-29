@@ -56,8 +56,8 @@ setup_boot () {
 
     # Install boot hierarchy (UFS only because the EFI loader only does UFS)
     # 32k block size and 4096 fragments
-    newfs -L BOOT -b 32768 -f 4096 -g 771957 -h 280 -m 5 /dev/part-by-label/$DISK_NAME.a
-    mount -t ufs /dev/part-by-label/$DISK_NAME.a /mnt
+    newfs -L BOOT -b 32768 -f 4096 -g 771957 -h 280 -m 5 "/dev/part-by-label/$disk_name.a"
+    mount -t ufs "/dev/part-by-label/$disk_name.a" /mnt
     # Copy boot to the Boot pfs
     cpdup -I /boot /mnt/
     umount /mnt
@@ -71,8 +71,8 @@ setup_hammer2 () {
     fi
 
     perror 'Creating HAMMER2 filesystem @ROOT ...'
-    newfs_hammer2 -L ROOT /dev/part-by-label/$disk_name.d
-    mount -t hammer2 /dev/part-by-label/$disk_name.d@ROOT /mnt
+    newfs_hammer2 -L ROOT "/dev/part-by-label/$disk_name.d"
+    mount -t hammer2 "/dev/part-by-label/$disk_name.d@ROOT" /mnt
 
     perror 'Creating all PFS...'
     hammer2 -s /mnt pfs-create usr
@@ -92,7 +92,7 @@ setup_hammer2 () {
     mkdir /mnt/volatile
 
     # Mount the top level pfs
-    mount -t ufs /dev/part-by-label/$disk_name.a /mnt/boot
+    mount -t ufs "/dev/part-by-label/$disk_name.a" /mnt/boot
     mount_hammer2 @usr        /mnt/usr 
     mount_hammer2 @var        /mnt/var
     mount_hammer2 @home       /mnt/home  
