@@ -20,16 +20,18 @@ else
     HOME_DIRECTORY="/home/${USERNAME}"
 fi
 
-if [ "x$SOURCE_HOSTNAME" = 'x' ] || [ "x$SOURCE_PORT" = 'x' ]
-then
-    if [ "x$SOURCE_HOSTNAME" = 'x' ]; then
-        echo 'missing hostname'
+if [ ! -f /mnt/root.pub ]; then
+    if [ "x$SOURCE_HOSTNAME" = 'x' ] || [ "x$SOURCE_PORT" = 'x' ]
+    then
+        if [ "x$SOURCE_HOSTNAME" = 'x' ]; then
+            echo 'missing hostname'
+        fi
+        if [ "x$SOURCE_PORT" = 'x' ]; then
+            echo 'missing port'
+        fi
+        exit 1
     fi
-    if [ "x$SOURCE_PORT" = 'x' ]; then
-        echo 'missing port'
-    fi
-    exit 1
-fi
+fi 
 
 if [ -f /usr/local/bin/bash ]
 then
@@ -58,8 +60,11 @@ chmod 0700 $HOME_DIRECTORY/.ssh
 chmod 0600 $HOME_DIRECTORY/.ssh/authorized_keys
 chown -R $USERNAME:$GROUP $HOME_DIRECTORY
 chown -R $USERNAME:$GROUP $HOME_DIRECTORY/.ssh
-
-curl -s "http://${SOURCE_HOSTNAME}:${SOURCE_PORT}/${USERNAME}.pub" | tee -a $HOME_DIRECTORY/.ssh/authorized_keys
+if [ -f /mnt/root.pub ]; then
+    cat /mnt/root.pub | tee -a $HOME_DIRECTORY/.ssh/authorized_keys
+else
+    curl -s "http://${SOURCE_HOSTNAME}:${SOURCE_PORT}/${USERNAME}.pub" | tee -a $HOME_DIRECTORY/.ssh/authorized_keys
+fi
 sed -i '' -e '$a\' $HOME_DIRECTORY/.ssh/authorized_keys
 if [ "x$USERNAME" = 'xroot' ]
 then

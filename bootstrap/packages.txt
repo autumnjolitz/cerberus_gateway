@@ -1,1 +1,13 @@
-dual-dhclient # DHCPv6 and DHCPv4 dispatcher
+dual-dhclient-daemon   # DHCPv6 and DHCPv4 dispatcher
+dmidecode              # pulls out important info from uefi/bios
+e2fsprogs-core         # allows for creation/fsck of ext2,3,4
+e2fsprogs              # adds links for fsck_ext2fs et al
+fusefs-ext2            # mount ext2/3/4 fs
+fusefs-s3backer        # puts blocks in S3
+hfsutils               # allows fsck/user mount of hfs+
+fusefs-ntfs            # NTFS-3g
+fusefs-ntfs-compression
+fusefs-hfsfuse         # mount hfs
+# fusefs-squashfuse    # read only squashfs
+# fusefs-sshfs         # SSHfs
+# fsapfsmount          # APFS

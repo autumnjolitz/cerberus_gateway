@@ -8,8 +8,15 @@ packer {
       version = ">= 1.0.8"
       source = "github.com/ivoronin/sshkey"
     }
-
+    amazon = {
+      source  = "github.com/hashicorp/amazon"
+      version = "~> 1"
+    }
   }
+}
+variable "debug" {
+  default = false
+  type = bool
 }
 # ARJ: Dragonfly's HAMMER2 likes 60+GiB disks
 variable "disk_size_gb" {
@@ -19,6 +26,11 @@ variable "disk_size_gb" {
     condition = var.disk_size_gb >= 60
     error_message = "HAMMER2 does not accept disk sizes smaller than 60GiB!"
   }
+}
+
+variable "ami_tags" {
+  type = map(string)
+  default = {}
 }
 
 variable "cpus" {
@@ -44,12 +56,14 @@ data "sshkey" "install" {
 }
 
 source "virtualbox-iso" "dragonfly" {
-  headless = true
+  headless = ! var.debug
   guest_os_type = "FreeBSD_64"
   cpus = var.cpus
   memory= var.memory
   rtc_time_base = "UTC"
   firmware = "efi"
+
+  format = "ova"
 
   virtualbox_version_file = ""
   # Dragonfly does not support guest additions and
@@ -63,7 +77,8 @@ source "virtualbox-iso" "dragonfly" {
 
   chipset = "ich9"
   iso_interface = "sata"
-  hard_drive_interface = "sata"
+  nic_type = "virtio"
+  hard_drive_interface = "pcie"
 
   sata_port_count = 4
   disk_size = var.disk_size_gb * 1024
@@ -71,10 +86,28 @@ source "virtualbox-iso" "dragonfly" {
   hard_drive_nonrotational = true
   hard_drive_discard = true
 
+  cd_files = ["bootstrap/*"]
+  cd_content = {
+    "root.pub" = data.sshkey.install.public_key
+    "pfi.conf" = <<EOF
+ifconfig_vtnet0="DHCP"
+pfi_script="unattended-init.sh"
+pfi_sshd_permit_root_login="YES"
+# pfi_autologin="root"
+pfi_shutdown_command="shutdown -r now"
+pfi_sshd_permit_root_login="YES"
+pfi_sshd_permit_empty_passwords="YES"
+pfi_rc_actions="netif dhcp_client sshd"
+
+EOF
+  }
+  cd_label = "init-data"
+
+
   nested_virt = true
   usb = true
 
-  boot_wait = "90s"
+  boot_wait = "5s"
 
   ssh_private_key_file      = data.sshkey.install.private_key_path
   ssh_clear_authorized_keys = false  # we don't have `sudo` on the ISO...
@@ -89,17 +122,19 @@ source "virtualbox-iso" "dragonfly" {
     # "<enter>",
     # "\\efi\\boot\\bootx64.efi", # Initiate the EFI boot loader
     # "<enter>",
-    "root<return>",
-    "dhclient em0 && sleep 3 && \\<return>", # Get the ip from the dhcp server
-    "curl 'http://{{ .HTTPIP }}:{{ .HTTPPort }}/setup-user.sh' | sh -s {{ .HTTPIP }} {{ .HTTPPort }} root && \\<return>",
-    # "tail -f /var/log/auth.log<return>",  # ARJ: Uncomment this to debug SSH login errors
-    "exit <return>",
+    "<wait50ms>1<enter><wait70s>",
   ]
   vboxmanage = [
-    # [ "setextradata", "{{.Name}}", "GUI/ScaleFactor", "1.7" ],
+    [ "setextradata", "{{.Name}}", "GUI/ScaleFactor", "1.7" ],
     [ "modifyvm", "{{.Name}}", "--firmware", "EFI" ],
+    [ "modifyvm", "{{.Name}}", "--hpet", "on" ],
+    [ "modifyvm", "{{.Name}}", "--x2apic", "on" ],
+    [ "modifyvm", "{{.Name}}", "--vtxux", "on" ],
+    [ "modifyvm", "{{.Name}}", "--accelerate3d", "on" ],
+    # [ "modifyvm", "{{.Name}}", "--accelerate2dvideo", "on" ],
     [ "modifyvm", "{{.Name}}", "--nat-localhostreachable1", "on" ],
-    [ "storagectl",  "{{.Name}}", "--name", "SATA Controller", "--hostiocache", "on"]
+    [ "storagectl",  "{{.Name}}", "--name", "SATA Controller", "--hostiocache", "off"],
+    [ "storagectl",  "{{.Name}}", "--name", "NVMe Controller", "--hostiocache", "off"]
   ]
   ssh_username = "root"
   shutdown_command = "shutdown -p +0"
@@ -124,6 +159,7 @@ build {
     sources = [
       "bootstrap/common.sh",
       "bootstrap/install-dragonfly.sh",
+      "bootstrap/packages.txt",
     ]
   }
   provisioner "file" {
@@ -137,8 +173,13 @@ build {
     inline = [
       "cd /root/installer",
       "chmod +x install-dragonfly.sh",
-      "./install-dragonfly.sh /dev/da0",
+      "./install-dragonfly.sh",
     ]
     execute_command = "chmod +x {{ .Path }}; env {{ .Vars }} {{ .Path }}"
+  }
+
+  post-processor "checksum" { # checksum image
+    checksum_types = [ "md5", "sha512" ] # checksum the artifact
+    keep_input_artifact = true           # keep the artifact
   }
 }
